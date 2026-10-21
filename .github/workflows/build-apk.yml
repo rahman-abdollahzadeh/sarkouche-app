@@ -28,16 +28,31 @@ jobs:
         with:
           packages: platform-tools platforms;android-34 build-tools;34.0.0
 
-      - name: Build Debug APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > sarkouche-release.jks
+          # اگر فایل b64 از certutil ویندوز باشد، هدرها را حذف کن
+          if grep -q "BEGIN" sarkouche-release.jks 2>/dev/null; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | sed '/^-----/d' | base64 -d > sarkouche-release.jks
+          fi
+          ls -la sarkouche-release.jks
+
+      - name: Build signed Release APK
+        run: |
+          gradle assembleRelease --no-daemon --stacktrace \
+            -Pandroid.injected.signing.store.file=$PWD/sarkouche-release.jks \
+            -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
+            -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
+            -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
 
       - name: List APK
         if: always()
         run: find . -name "*.apk" -type f 2>/dev/null || echo "No APK found"
 
-      - name: Upload APK
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: sarkouche-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: sarkouche-release-apk
+          path: |
+            app/build/outputs/apk/release/*.apk
           if-no-files-found: error
