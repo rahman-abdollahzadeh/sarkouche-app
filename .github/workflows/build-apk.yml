@@ -29,13 +29,12 @@ jobs:
           packages: platform-tools platforms;android-34 build-tools;34.0.0
 
       - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > sarkouche-release.jks
-          # اگر فایل b64 از certutil ویندوز باشد، هدرها را حذف کن
-          if grep -q "BEGIN" sarkouche-release.jks 2>/dev/null; then
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | sed '/^-----/d' | base64 -d > sarkouche-release.jks
-          fi
+          printf '%s' "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > sarkouche-release.jks
           ls -la sarkouche-release.jks
+          file sarkouche-release.jks
 
       - name: Build signed Release APK
         run: |
@@ -53,6 +52,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sarkouche-release-apk
-          path: |
-            app/build/outputs/apk/release/*.apk
+          path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
